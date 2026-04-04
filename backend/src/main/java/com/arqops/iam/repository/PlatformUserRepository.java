@@ -1,0 +1,12 @@
+package com.arqops.iam.repository;
+
+import com.arqops.iam.entity.PlatformUser;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+public interface PlatformUserRepository extends JpaRepository<PlatformUser, UUID> {
+
+    Optional<PlatformUser> findByEmail(String email);
+}

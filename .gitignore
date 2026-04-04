@@ -1,0 +1,45 @@
+# Secrets and local env (never commit)
+.env
+.env.*
+!.env*.example
+.env.prod
+.env.local
+
+# IDE / editors
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# --- Frontend (Next.js / Node)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.turbo/
+frontend/.vercel/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+
+# --- Backend (Java / Maven)
+backend/target/
+backend/.classpath
+backend/.project
+backend/.settings/
+
+# Logs and coverage
+*.log
+coverage/
+.nyc_output/
+
+# Docker / local data volumes
+pgdata_dev/
+redis_dev/
+minio_dev/

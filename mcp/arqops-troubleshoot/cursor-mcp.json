@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "arqops-troubleshoot": {
+      "command": "node",
+      "args": ["/Users/ajiyosyohannan/Monolith/mcp/arqops-troubleshoot/dist/index.js"],
+      "env": {
+        "ARQOPS_PROJECT_ROOT": "R/Users/ajiyosyohannan/Monolith",
+        "ARQOPS_DOCKER_COMPOSE_FILE": "docker-compose.dev.yml",
+        "POSTGRES_HOST": "localhost",
+        "POSTGRES_PORT": "5432",
+        "POSTGRES_DB": "architect_saas",
+        "POSTGRES_USER": "architect_user",
+        "POSTGRES_PASSWORD": "architect_pass",
+        "ARQOPS_BACKEND_HEALTH_URL": "http://localhost:8080/actuator/health"
+      }
+    }
+  }
+}

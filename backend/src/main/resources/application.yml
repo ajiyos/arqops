@@ -1,0 +1,72 @@
+spring:
+  application:
+    name: arqops-backend
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          time_zone: Asia/Kolkata
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    # Recovery: set env FLYWAY_REPAIR=true once if validate fails on checksum mismatch after migration edits.
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+    time-zone: Asia/Kolkata
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+app:
+  branding:
+    logo-storage-dir: ${BRANDING_LOGO_DIR:./data/tenant-logos}
+    public-api-url: ${PUBLIC_API_URL:http://localhost:8080}
+  jwt:
+    secret: ${JWT_SECRET:defaultDevSecretKeyThatIsAtLeast64CharactersLongForHS512AlgorithmUsage!!}
+    access-token-expiry: ${JWT_ACCESS_TOKEN_EXPIRY:900}
+    refresh-token-expiry: ${JWT_REFRESH_TOKEN_EXPIRY:604800}
+  cors:
+    allowed-origins: ${CORS_ORIGIN:http://localhost:3000}
+  google:
+    redirect-uri: ${GOOGLE_OAUTH_REDIRECT_URI:http://localhost:8080/api/v1/tenant/storage/google/callback}
+    oauth-success-redirect: ${GOOGLE_OAUTH_SUCCESS_REDIRECT:http://localhost:3000/settings/profile?google_drive=connected}
+    oauth-error-redirect: ${GOOGLE_OAUTH_ERROR_REDIRECT:http://localhost:3000/settings/profile?google_drive=error}
+  encryption:
+    key: ${APP_ENCRYPTION_KEY:devEncryptionKeyThatIs32Bytes!!}
+  openai:
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method

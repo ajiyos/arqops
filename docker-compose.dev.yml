@@ -1,0 +1,102 @@
+services:
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  backend:
+    image: eclipse-temurin:21-jdk
+    working_dir: /app
+    command: sh -c "./mvnw spring-boot:run -Dspring-boot.run.jvmArguments='-Xms256m -Xmx1024m'"
+    volumes:
+      - ./backend:/app
+      - m2_cache:/root/.m2
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/architect_saas
+      SPRING_DATASOURCE_USERNAME: architect_user
+      SPRING_DATASOURCE_PASSWORD: architect_pass
+      SERVER_PORT: 8080
+      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_FLYWAY_ENABLED: "true"
+      # Google Drive: platform callback URL only; each tenant sets OAuth client ID/secret in Settings.
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-http://localhost:8080/api/v1/tenant/storage/google/callback}
+      GOOGLE_OAUTH_SUCCESS_REDIRECT: ${GOOGLE_OAUTH_SUCCESS_REDIRECT:-http://localhost:3000/settings/profile?google_drive=connected}
+      GOOGLE_OAUTH_ERROR_REDIRECT: ${GOOGLE_OAUTH_ERROR_REDIRECT:-http://localhost:3000/settings/profile?google_drive=error}
+      # Browser-accessible API URL for tenant logo links returned after upload
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
+    ports:
+      - "8080:8080"
+      - "5005:5005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  worker:
+    image: eclipse-temurin:21-jdk
+    working_dir: /app
+    command: sh -c "./mvnw spring-boot:run -Dspring-boot.run.profiles=worker"
+    volumes:
+      - ./backend:/app
+      - m2_cache:/root/.m2
+    environment:
+      SPRING_PROFILES_ACTIVE: worker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/architect_saas
+      SPRING_DATASOURCE_USERNAME: architect_user
+      SPRING_DATASOURCE_PASSWORD: architect_pass
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - worker
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: architect_saas
+      POSTGRES_USER: architect_user
+      POSTGRES_PASSWORD: architect_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+      - ./infra/dev/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U architect_user -d architect_saas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:latest
+    ports:
+      - "9090:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata_dev:
+  m2_cache:
+  frontend_node_modules:

@@ -1,0 +1,51 @@
+{
+	email {$ACME_EMAIL:admin@arqops.com}
+}
+
+# Main application domain — serves the frontend
+{$APP_DOMAIN:app.arqops.com} {
+	encode gzip zstd
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	handle /actuator/health {
+		reverse_proxy backend:8080
+	}
+
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
+
+# API subdomain — routes all traffic to backend
+{$API_DOMAIN:api.arqops.com} {
+	encode gzip zstd
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Access-Control-Allow-Origin "{$CORS_ORIGIN:https://app.arqops.com}"
+		Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+		Access-Control-Allow-Headers "Authorization, Content-Type, X-Tenant-Id"
+		Access-Control-Max-Age "86400"
+		-Server
+	}
+
+	@options method OPTIONS
+	handle @options {
+		respond 204
+	}
+
+	reverse_proxy backend:8080
+}
