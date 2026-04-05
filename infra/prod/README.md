@@ -226,6 +226,16 @@ podman system df
 
 `NEXT_PUBLIC_*` values are often **embedded at Next.js build time**. Ensure your **CI image build** sets `NEXT_PUBLIC_API_BASE_URL` (or equivalent) **before** `npm run build` in [`frontend/Dockerfile`](../../frontend/Dockerfile); runtime env in Compose alone may not fix client-side API calls.
 
+### 19.1 CORS: `app` → `api` subdomain
+
+If the browser calls **`https://api.<domain>/...`** from **`https://app.<domain>`**, that is **cross-origin**. You need:
+
+1. **`CORS_ORIGIN=https://app.<domain>`** in **`.env.prod`** (no trailing slash) — Spring uses this for `Access-Control-Allow-Origin`.
+2. The same value on **Caddy** for the API site block — `docker-compose.prod.yml` passes **`CORS_ORIGIN`**, **`APP_DOMAIN`**, **`API_DOMAIN`**, and **`ACME_EMAIL`** into the **`reverse-proxy`** service so the Caddyfile placeholders match production.
+3. A **healthy backend**. If Caddy returns **502** to the browser, responses often **omit** CORS headers, and DevTools shows a **CORS** error even though the root cause is **API/DB down**.
+
+**Same-origin (no browser CORS):** set **`PUBLIC_API_URL=https://app.<domain>`**, **rebuild the frontend**, and use the existing Caddy route **`/api/*` → backend** on the app host.
+
 ---
 
 ## Troubleshooting: `unhealthy` backend or worker

@@ -7,6 +7,11 @@ services:
       - "80:80"
       - "443:443"
       - "443:443/udp"
+    environment:
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://app.arqops.com}
+      APP_DOMAIN: ${APP_DOMAIN:-app.arqops.com}
+      API_DOMAIN: ${API_DOMAIN:-api.arqops.com}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@arqops.com}
     volumes:
       - ./infra/prod/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

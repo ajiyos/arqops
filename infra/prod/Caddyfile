@@ -36,9 +36,11 @@
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		Access-Control-Allow-Origin "{$CORS_ORIGIN:https://app.arqops.com}"
+		Access-Control-Allow-Credentials "true"
 		Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-		Access-Control-Allow-Headers "Authorization, Content-Type, X-Tenant-Id"
+		Access-Control-Allow-Headers "Authorization, Content-Type, X-Tenant-Id, Accept"
 		Access-Control-Max-Age "86400"
+		Vary "Origin"
 		-Server
 	}
 

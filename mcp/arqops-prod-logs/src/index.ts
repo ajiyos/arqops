@@ -3,6 +3,7 @@
  * Configure env (see README). Run: npm run build && node dist/index.js
  */
 import { spawnSync, type SpawnSyncReturns } from "child_process";
+import { homedir } from "os";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -22,23 +23,49 @@ function assertSafeAbsPath(value: string, envName: string): string {
   return v;
 }
 
-function assertSafeFilename(value: string, envName: string): string {
+/** Compose/env file path relative to ARQOPS_PROD_REMOTE_DIR (no leading /, no ..). */
+function assertSafeRelativeComposePath(value: string, envName: string): string {
   const v = value.trim();
-  if (!/^[a-zA-Z0-9._-]+$/.test(v)) {
-    throw new Error(`${envName} must be a simple filename`);
+  if (v.startsWith("/") || v.includes("..")) {
+    throw new Error(`${envName} must be relative to remote dir (no leading / or ..)`);
+  }
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9/._-]*$/.test(v)) {
+    throw new Error(`${envName} invalid characters`);
   }
   return v;
+}
+
+function expandLocalIdentityPath(p: string): string {
+  if (p.startsWith("~/")) {
+    return `${homedir()}/${p.slice(2)}`;
+  }
+  if (p === "~") {
+    return homedir();
+  }
+  return p;
 }
 
 function remotePaths(): { dir: string; composeFile: string; envFile: string } {
   return {
     dir: assertSafeAbsPath(process.env.ARQOPS_PROD_REMOTE_DIR ?? "/opt/arqops", "ARQOPS_PROD_REMOTE_DIR"),
-    composeFile: assertSafeFilename(
+    composeFile: assertSafeRelativeComposePath(
       process.env.ARQOPS_PROD_COMPOSE_FILE ?? "docker-compose.prod.yml",
       "ARQOPS_PROD_COMPOSE_FILE",
     ),
-    envFile: assertSafeFilename(process.env.ARQOPS_PROD_ENV_FILE ?? ".env.prod", "ARQOPS_PROD_ENV_FILE"),
+    envFile: assertSafeRelativeComposePath(process.env.ARQOPS_PROD_ENV_FILE ?? ".env.prod", "ARQOPS_PROD_ENV_FILE"),
   };
+}
+
+/** Absolute paths on the remote host (avoids relying on `cd` + login-shell cwd). */
+function remoteAbsPaths(): { composeAbs: string; envAbs: string } {
+  const { dir, composeFile, envFile } = remotePaths();
+  const base = dir.replace(/\/+$/u, "");
+  const composeAbs = `${base}/${composeFile}`;
+  const envAbs = `${base}/${envFile}`;
+  if (composeAbs.includes("..") || envAbs.includes("..")) {
+    throw new Error("Invalid path");
+  }
+  return { composeAbs, envAbs };
 }
 
 function composePrefix(): string {
@@ -64,8 +91,9 @@ function sshTarget(): { argsBeforeRemote: string[]; remoteSpec: string } {
     "ConnectTimeout=20",
   ];
 
-  const id = process.env.ARQOPS_PROD_SSH_IDENTITY_FILE?.trim();
-  if (id) {
+  const idRaw = process.env.ARQOPS_PROD_SSH_IDENTITY_FILE?.trim();
+  if (idRaw) {
+    const id = expandLocalIdentityPath(idRaw);
     if (/[\s'"$`;&|<>]/.test(id)) {
       throw new Error("Invalid ARQOPS_PROD_SSH_IDENTITY_FILE");
     }
@@ -77,7 +105,8 @@ function sshTarget(): { argsBeforeRemote: string[]; remoteSpec: string } {
 
 function runRemoteShell(remoteCommand: string): SpawnSyncReturns<string> {
   const { argsBeforeRemote, remoteSpec } = sshTarget();
-  return spawnSync("ssh", [...argsBeforeRemote, remoteSpec, "bash", "-lc", remoteCommand], {
+  // Use bash -c (not -lc): login profiles can change cwd and break relative compose paths.
+  return spawnSync("ssh", [...argsBeforeRemote, remoteSpec, "bash", "-c", remoteCommand], {
     encoding: "utf8",
     maxBuffer: 25 * 1024 * 1024,
     timeout: 180_000,
@@ -100,17 +129,17 @@ function formatSpawn(r: SpawnSyncReturns<string>, label: string): string {
 }
 
 function logsCommand(services: AllowedService[], tail: number): string {
-  const { dir, composeFile, envFile } = remotePaths();
+  const { composeAbs, envAbs } = remoteAbsPaths();
   const prefix = composePrefix();
   const svc = services.join(" ");
-  return `cd ${dir} && ${prefix} --env-file ${envFile} -f ${composeFile} logs --tail=${tail} ${svc}`;
+  return `${prefix} --env-file ${envAbs} -f ${composeAbs} logs --tail=${tail} ${svc}`;
 }
 
 function psCommand(): string {
-  const { dir, composeFile, envFile } = remotePaths();
+  const { composeAbs, envAbs } = remoteAbsPaths();
   const prefix = composePrefix();
   // podman-compose 1.x does not accept `ps -a` (unlike docker compose); plain `ps` lists containers.
-  return `cd ${dir} && ${prefix} --env-file ${envFile} -f ${composeFile} ps`;
+  return `${prefix} --env-file ${envAbs} -f ${composeAbs} ps`;
 }
 
 const server = new McpServer(
