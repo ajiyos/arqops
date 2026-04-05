@@ -1,7 +1,7 @@
 services:
 
   frontend:
-    image: node:20-alpine
+    image: docker.io/library/node:20-alpine
     working_dir: /app
     command: sh -c "npm install && npm run dev"
     volumes:
@@ -18,7 +18,7 @@ services:
         condition: service_healthy
 
   backend:
-    image: eclipse-temurin:21-jdk
+    image: docker.io/eclipse-temurin:21-jdk
     working_dir: /app
     command: sh -c "./mvnw spring-boot:run -Dspring-boot.run.jvmArguments='-Xms256m -Xmx1024m'"
     volumes:
@@ -52,7 +52,7 @@ services:
       start_period: 60s
 
   worker:
-    image: eclipse-temurin:21-jdk
+    image: docker.io/eclipse-temurin:21-jdk
     working_dir: /app
     command: sh -c "./mvnw spring-boot:run -Dspring-boot.run.profiles=worker"
     volumes:
@@ -70,7 +70,7 @@ services:
       - worker
 
   postgres:
-    image: postgres:16-alpine
+    image: docker.io/library/postgres:16-alpine
     environment:
       POSTGRES_DB: architect_saas
       POSTGRES_USER: architect_user
@@ -87,7 +87,7 @@ services:
       retries: 5
 
   adminer:
-    image: adminer:latest
+    image: docker.io/library/adminer:latest
     ports:
       - "9090:8080"
     environment:

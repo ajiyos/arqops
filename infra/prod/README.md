@@ -105,6 +105,8 @@ Use your **registry read token** as the password.
 
 Optional: to match Docker-style names on scripts that call `docker`, you can install **`podman-docker`** (`apt install podman-docker`); this README uses **`podman`** / **`podman-compose`** only.
 
+**Short image names:** Podman may reject names like `caddy:2.8-alpine` unless `/etc/containers/registries.conf` sets `unqualified-search-registries`. This repo’s Compose files use fully qualified names (e.g. `docker.io/library/caddy:2.8-alpine`) so pulls work without extra config. Manual pull: `podman pull docker.io/library/caddy:2.8-alpine`.
+
 ### Setup scripts (optional)
 
 Numbered helpers in [`infra/prod/scripts/`](./scripts/) automate install, registry login, `.env.prod` bootstrap, deploy, status, and health checks. See [`scripts/README.md`](./scripts/README.md). Example:

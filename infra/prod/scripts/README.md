@@ -25,6 +25,7 @@ chmod +x infra/prod/scripts/*.sh
 | **06-status.sh** | `podman-compose ps`. |
 | **07-verify-health.sh** | Curls `http://127.0.0.1:8080/actuator/health/liveness`. Optional: `VERIFY_APP_URL`, `VERIFY_API_URL`. |
 | **08-logs.sh** | `logs -f` (default: `reverse-proxy` `backend`). Pass service names as args. |
+| **build-push-images.sh** | **Laptop / CI** — `docker`/`podman` build + push `backend` and `frontend` using `DOCKER_REGISTRY`, `IMAGE_TAG`, `PUBLIC_API_URL` from `.env.prod` (or `--env-file`). Login to the registry first. |
 
 ## Environment overrides
 
@@ -35,6 +36,20 @@ chmod +x infra/prod/scripts/*.sh
 | `ARQOPS_ENV_FILE` | Alternate env file (default: `$REPO_ROOT/.env.prod`). |
 | `DO_REGISTRY_TOKEN` / `DOCR_TOKEN` | For **02** non-interactive registry login. |
 | `VERIFY_APP_URL` / `VERIFY_API_URL` | For **07** external HTTPS checks. |
+| `CONTAINER_ENGINE` | For **build-push-images.sh**: `docker` (default) or `podman`. |
+| `ALSO_LATEST` | For **build-push-images.sh**: set to `1` to also tag and push `:latest`. |
+
+### Build and push images (before deploy)
+
+On a machine with Docker or Podman, after `docker login registry.digitalocean.com`:
+
+```bash
+chmod +x infra/prod/scripts/build-push-images.sh
+./infra/prod/scripts/build-push-images.sh --env-file .env.prod
+# optional: ALSO_LATEST=1 ./infra/prod/scripts/build-push-images.sh
+```
+
+Requires **`DOCKER_REGISTRY`**, **`IMAGE_TAG`**, and **`PUBLIC_API_URL`** in the env file (same as production compose).
 
 ## Example (fresh Droplet)
 

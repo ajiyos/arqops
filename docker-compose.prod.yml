@@ -1,7 +1,7 @@
 services:
 
   reverse-proxy:
-    image: caddy:2.8-alpine
+    image: docker.io/library/caddy:2.8-alpine
     restart: unless-stopped
     ports:
       - "80:80"
