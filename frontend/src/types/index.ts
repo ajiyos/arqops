@@ -521,3 +521,13 @@ export interface TenantContractAiConfig {
   apiKeyConfigured: boolean;
   apiKeyLastFour?: string;
 }
+
+export interface TenantOutboundEmailConfig {
+  smtpHost: string;
+  smtpPort: number;
+  smtpUsername: string;
+  fromEmail: string;
+  starttlsEnabled: boolean;
+  smtpSsl: boolean;
+  passwordConfigured: boolean;
+}

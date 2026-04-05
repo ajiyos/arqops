@@ -14,6 +14,7 @@ import com.arqops.crm.entity.Client;
 import com.arqops.crm.repository.ClientRepository;
 import com.arqops.iam.entity.Tenant;
 import com.arqops.iam.repository.TenantRepository;
+import com.arqops.iam.service.TenantOutboundSmtpService;
 import com.arqops.project.entity.Project;
 import com.arqops.project.repository.ProjectRepository;
 import com.arqops.vendor.entity.Vendor;
@@ -48,7 +49,7 @@ public class ContractService {
     private final AuditService auditService;
     private final TenantContractAiConfigService aiConfigService;
     private final OpenAiContractClient openAiContractClient;
-    private final ContractEmailService contractEmailService;
+    private final TenantOutboundSmtpService tenantOutboundSmtpService;
     private final ContractSendLogPersistence sendLogPersistence;
 
     @Transactional(readOnly = true)
@@ -257,7 +258,8 @@ public class ContractService {
         UUID logId = sendLogPersistence.saveNew(logEntry);
 
         try {
-            contractEmailService.sendWithAttachment(
+            tenantOutboundSmtpService.sendWithAttachment(
+                    tenantId,
                     emails,
                     subj,
                     text,

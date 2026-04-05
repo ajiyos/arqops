@@ -151,9 +151,9 @@ nano .env.prod
 Set at least:
 
 - **`SPRING_DATASOURCE_*`** — managed Postgres (prefer **private** host in JDBC URL).
-- **`JWT_SECRET`**, **`APP_ENCRYPTION_KEY`**.
+- **`JWT_SECRET`**, **`APP_ENCRYPTION_KEY`** (encryption key also protects per-tenant SMTP passwords at rest).
 - **`GOOGLE_OAUTH_*`** — exact URLs registered in Google Cloud Console.
-- **`SPRING_MAIL_*`**, **`MAIL_FROM_ADDRESS`**.
+- **Outbound email** — each tenant configures SMTP in-app (**Settings → Outbound email**), not in `.env.prod`.
 - **`DOCKER_REGISTRY`**, **`IMAGE_TAG`** — match pushed images.
 - **`PUBLIC_API_URL`** — e.g. `https://api.yourdomain.com` (frontend gets `NEXT_PUBLIC_API_BASE_URL` from compose).
 - **`CORS_ORIGIN`** — e.g. `https://app.yourdomain.com`.

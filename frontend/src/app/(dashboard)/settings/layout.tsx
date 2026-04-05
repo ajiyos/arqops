@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
-import { Building2, Users, Shield, UserCog, ScrollText, Layers, Sparkles } from "lucide-react";
+import { Building2, Users, Shield, UserCog, ScrollText, Layers, Sparkles, Mail } from "lucide-react";
 
 const settingsTabs = [
   { label: "Firm Profile", href: "/settings/profile", icon: Building2 },
   { label: "My Account", href: "/settings/account", icon: UserCog },
   { label: "Project types", href: "/settings/project-types", icon: Layers },
+  { label: "Outbound email", href: "/settings/outbound-email", icon: Mail },
   { label: "Contract AI", href: "/settings/contract-ai", icon: Sparkles },
   { label: "Users", href: "/settings/users", icon: Users },
   { label: "Roles", href: "/settings/roles", icon: Shield },
