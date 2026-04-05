@@ -228,6 +228,24 @@ podman system df
 
 ---
 
+## Troubleshooting: `unhealthy` backend or worker
+
+| Container | Typical cause |
+|-----------|----------------|
+| **worker** | The **worker** Spring profile sets **`web-application-type: none`** — there is **no HTTP server** on port 8080. A healthcheck that runs **`curl … :8080`** will **always fail**. The compose file disables the worker healthcheck for that reason. |
+| **backend** | Must answer **`GET /actuator/health/liveness`** on **8080**. If the image has **no `curl`**, the check fails — the [`backend/Dockerfile`](../../backend/Dockerfile) installs **`curl`**. Rebuild and push the backend image. If the JVM is slow to start (Flyway, DB), **`start_period`** is **120s** in [`docker-compose.prod.yml`](../../docker-compose.prod.yml). |
+
+**Inspect:**
+
+```bash
+podman-compose --env-file .env.prod -f docker-compose.prod.yml logs --tail=100 backend
+podman exec -it arqops_backend_1 curl -sf http://localhost:8080/actuator/health/liveness && echo OK
+```
+
+After updating `docker-compose.prod.yml`, run **`up -d`** again so the new healthcheck definitions apply.
+
+---
+
 ## Checklist
 
 | Step | Action |

@@ -81,7 +81,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 45s
+      # Flyway + JVM on a small Droplet can exceed 45s; image must include curl (see backend Dockerfile).
+      start_period: 120s
     logging:
       driver: json-file
       options:
@@ -103,12 +104,9 @@ services:
         limits:
           cpus: "1.0"
           memory: 1280M
+    # Worker profile uses web-application-type: none — no HTTP server; do not curl :8080.
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health/liveness || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 45s
+      disable: true
     logging:
       driver: json-file
       options:

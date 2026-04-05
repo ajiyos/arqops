@@ -8,6 +8,8 @@ Model Context Protocol server for debugging the **Monolith** stack: **read-only 
 - Queries run inside `BEGIN` + `SET TRANSACTION READ ONLY` when possible.
 - Do **not** expose this server over the network; Cursor runs it locally via stdio.
 
+**Production logs on the Droplet** (SSH + remote `podman-compose`): use the sibling package [`../arqops-prod-logs`](../arqops-prod-logs).
+
 ## Setup
 
 ```bash
