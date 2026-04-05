@@ -19,8 +19,9 @@ public class ContractEmailService {
 
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
 
-    @Value("${spring.mail.username:}")
-    private String fromUsername;
+    /** Visible From; Resend SMTP username is always "resend", so use spring.mail.from (or MAIL_FROM_ADDRESS via env). */
+    @Value("${spring.mail.from:${MAIL_FROM_ADDRESS:${spring.mail.username:}}}")
+    private String fromAddress;
 
     public void sendWithAttachment(List<String> toEmails, String subject, String textBody,
                                    String attachmentName, byte[] attachmentBytes, String mimeType) {
@@ -31,7 +32,7 @@ public class ContractEmailService {
         if (sender == null) {
             throw AppException.badRequest("Outbound email is not configured (set MAIL_HOST / spring.mail on the server)");
         }
-        String from = fromUsername != null && !fromUsername.isBlank() ? fromUsername : "noreply@localhost";
+        String from = fromAddress != null && !fromAddress.isBlank() ? fromAddress : "noreply@localhost";
         try {
             MimeMessage message = sender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());

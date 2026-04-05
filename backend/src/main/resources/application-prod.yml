@@ -1,4 +1,8 @@
 spring:
+  mail:
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}

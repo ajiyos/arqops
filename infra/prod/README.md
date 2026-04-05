@@ -151,7 +151,7 @@ nano .env.prod
 Set at least:
 
 - **`SPRING_DATASOURCE_*`** — managed Postgres (prefer **private** host in JDBC URL).
-- **`JWT_SECRET`**, **`APP_ENCRYPTION_KEY`**, Redis-related vars if prod uses Redis.
+- **`JWT_SECRET`**, **`APP_ENCRYPTION_KEY`**.
 - **`GOOGLE_OAUTH_*`** — exact URLs registered in Google Cloud Console.
 - **`SPRING_MAIL_*`**, **`MAIL_FROM_ADDRESS`**.
 - **`DOCKER_REGISTRY`**, **`IMAGE_TAG`** — match pushed images.
