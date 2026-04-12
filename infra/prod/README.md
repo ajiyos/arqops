@@ -168,7 +168,7 @@ Set at least:
 - **`DOCKER_REGISTRY`**, **`IMAGE_TAG`** — match pushed images.
 - **`PUBLIC_API_URL`** — e.g. `https://api.yourdomain.com` (frontend gets `NEXT_PUBLIC_API_BASE_URL` from compose).
 - **`CORS_ORIGIN`** — must match the **canonical** app origin (no trailing slash), e.g. `https://arqops.com` when `www` redirects to apex. Spring and the API Caddy site both use this.
-- **`APP_DOMAIN`** — comma-separated site addresses for the app listener, e.g. `arqops.com,www.arqops.com` (passed into the Caddy container).
+- **`APP_DOMAIN`** — site addresses for the app listener, passed into Caddy. Use a **comma and a space**: e.g. **`arqops.com, www.arqops.com`** (Caddy **rejects** `arqops.com,www.arqops.com` without the space).
 - **`CANONICAL_APP_HOST`** — apex hostname only (no `https://`), e.g. `arqops.com`; used for the **`www` → apex** redirect in [`Caddyfile`](./Caddyfile).
 
 **Caddy:** [`docker-compose.prod.yml`](../../docker-compose.prod.yml) passes **`CORS_ORIGIN`**, **`APP_DOMAIN`**, **`CANONICAL_APP_HOST`**, **`API_DOMAIN`**, and **`ACME_EMAIL`** into **`reverse-proxy`**. For a custom zone, set those in **`.env.prod`** (compose interpolates them when you use `--env-file .env.prod`).
@@ -271,6 +271,18 @@ curl -sI -X OPTIONS 'https://api.arqops.com/api/v1/tenant' \
 ```
 
 In the browser, open **`https://arqops.com`**, sign in or register, and confirm API calls succeed (no CORS errors in DevTools).
+
+### 19.4 Site or TLS fails after changing domains
+
+- **`APP_DOMAIN` format:** Must be **`arqops.com, www.arqops.com`** — **comma then space** (Caddy requirement). Values like **`arqops.com,www.arqops.com`** (no space) make Caddy exit with *“put a space after the comma”*. Also avoid typos (e.g. **`www.arqops.comi`**). Fix **`.env.prod`**, pull an updated **[`Caddyfile`](./Caddyfile)** if needed, then recreate the proxy:  
+  `podman-compose --env-file .env.prod -f docker-compose.prod.yml up -d reverse-proxy`  
+  (or **`up -d`** for the full stack).
+- **Confirm env on the running container:**  
+  `podman inspect arqops_reverse-proxy_1 --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E 'APP_DOMAIN|CORS|API_DOMAIN|CANONICAL'`
+- **Caddy logs:**  
+  `podman logs --tail=80 arqops_reverse-proxy_1`  
+  Look for ACME / certificate / “solving challenges” errors (usually DNS not pointing at this host, or bad hostname in **`APP_DOMAIN`**).
+- **Backend still `starting` / `unhealthy`:** The UI can load from the frontend container while **`/api/*`** returns **502** — check **§** below and backend logs.
 
 ---
 

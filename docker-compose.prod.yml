@@ -11,7 +11,7 @@ services:
       - "${CADDY_PUBLISH_HTTPS_PORT:-443}:443/udp"
     environment:
       CORS_ORIGIN: ${CORS_ORIGIN:-https://arqops.com}
-      APP_DOMAIN: ${APP_DOMAIN:-arqops.com,www.arqops.com}
+      APP_DOMAIN: ${APP_DOMAIN:-arqops.com, www.arqops.com}
       CANONICAL_APP_HOST: ${CANONICAL_APP_HOST:-arqops.com}
       API_DOMAIN: ${API_DOMAIN:-api.arqops.com}
       ACME_EMAIL: ${ACME_EMAIL:-admin@arqops.com}

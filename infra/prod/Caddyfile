@@ -2,9 +2,9 @@
 	email {$ACME_EMAIL:admin@arqops.com}
 }
 
-# Main application — apex + optional www (comma-separated APP_DOMAIN).
+# Main application — apex + optional www (APP_DOMAIN: comma + space between hosts, required by Caddy).
 # CANONICAL_APP_HOST is the apex hostname; www.{CANONICAL_APP_HOST} 301 → https://{CANONICAL_APP_HOST}{uri}
-{$APP_DOMAIN:arqops.com,www.arqops.com} {
+{$APP_DOMAIN:arqops.com, www.arqops.com} {
 	@www host www.{$CANONICAL_APP_HOST:arqops.com}
 	redir @www https://{$CANONICAL_APP_HOST:arqops.com}{uri} permanent
 
