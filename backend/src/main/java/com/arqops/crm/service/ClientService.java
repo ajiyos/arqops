@@ -33,8 +33,10 @@ public class ClientService {
     }
 
     public ClientResponse getById(UUID id) {
+        UUID tenantId = TenantContext.getCurrentTenantId();
         Client client = clientRepository.findById(id)
                 .orElseThrow(() -> AppException.notFound("Client", id));
+        assertTenant(client, tenantId);
         return ClientResponse.from(client);
     }
 
@@ -56,8 +58,10 @@ public class ClientService {
 
     @Transactional
     public ClientResponse update(UUID id, ClientRequest request) {
+        UUID tenantId = TenantContext.getCurrentTenantId();
         Client client = clientRepository.findById(id)
                 .orElseThrow(() -> AppException.notFound("Client", id));
+        assertTenant(client, tenantId);
         client.setName(request.name());
         if (request.type() != null) {
             client.setType(request.type());
@@ -76,10 +80,18 @@ public class ClientService {
 
     @Transactional
     public void delete(UUID id) {
+        UUID tenantId = TenantContext.getCurrentTenantId();
         Client client = clientRepository.findById(id)
                 .orElseThrow(() -> AppException.notFound("Client", id));
+        assertTenant(client, tenantId);
         client.setDeletedAt(Instant.now());
         clientRepository.save(client);
         auditService.log("Client", client.getId(), "DELETE", Map.of("name", client.getName()));
+    }
+
+    private static void assertTenant(Client client, UUID tenantId) {
+        if (tenantId != null && !tenantId.equals(client.getTenantId())) {
+            throw AppException.forbidden("Access denied");
+        }
     }
 }
