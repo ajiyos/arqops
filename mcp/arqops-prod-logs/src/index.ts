@@ -29,7 +29,8 @@ function assertSafeRelativeComposePath(value: string, envName: string): string {
   if (v.startsWith("/") || v.includes("..")) {
     throw new Error(`${envName} must be relative to remote dir (no leading / or ..)`);
   }
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9/._-]*$/.test(v)) {
+  // Allow hidden names like `.env.prod` (leading dot after path-segment rules above).
+  if (!/^(?:[a-zA-Z0-9][a-zA-Z0-9/._-]*|\.[a-zA-Z0-9][a-zA-Z0-9/._-]*)$/.test(v)) {
     throw new Error(`${envName} invalid characters`);
   }
   return v;
@@ -54,18 +55,6 @@ function remotePaths(): { dir: string; composeFile: string; envFile: string } {
     ),
     envFile: assertSafeRelativeComposePath(process.env.ARQOPS_PROD_ENV_FILE ?? ".env.prod", "ARQOPS_PROD_ENV_FILE"),
   };
-}
-
-/** Absolute paths on the remote host (avoids relying on `cd` + login-shell cwd). */
-function remoteAbsPaths(): { composeAbs: string; envAbs: string } {
-  const { dir, composeFile, envFile } = remotePaths();
-  const base = dir.replace(/\/+$/u, "");
-  const composeAbs = `${base}/${composeFile}`;
-  const envAbs = `${base}/${envFile}`;
-  if (composeAbs.includes("..") || envAbs.includes("..")) {
-    throw new Error("Invalid path");
-  }
-  return { composeAbs, envAbs };
 }
 
 function composePrefix(): string {
@@ -128,18 +117,27 @@ function formatSpawn(r: SpawnSyncReturns<string>, label: string): string {
   return out || "(empty)";
 }
 
+/**
+ * podman-compose checks `os.path.exists(-f …)` before it chdirs into the project.
+ * SSH `bash -c` cwd is usually `$HOME`, so a relative `-f docker-compose.prod.yml` fails unless we
+ * set COMPOSE_PROJECT_DIR first (see podman_compose.py `_parse_compose_file`).
+ */
+function remoteComposePrefix(): string {
+  const { dir, composeFile, envFile } = remotePaths();
+  const base = dir.replace(/\/+$/u, "");
+  return `COMPOSE_PROJECT_DIR=${base} ${composePrefix()} --env-file ${envFile} -f ${composeFile}`;
+}
+
 function logsCommand(services: AllowedService[], tail: number): string {
-  const { composeAbs, envAbs } = remoteAbsPaths();
-  const prefix = composePrefix();
+  const prefix = remoteComposePrefix();
   const svc = services.join(" ");
-  return `${prefix} --env-file ${envAbs} -f ${composeAbs} logs --tail=${tail} ${svc}`;
+  return `${prefix} logs --tail=${tail} ${svc}`;
 }
 
 function psCommand(): string {
-  const { composeAbs, envAbs } = remoteAbsPaths();
-  const prefix = composePrefix();
+  const prefix = remoteComposePrefix();
   // podman-compose 1.x does not accept `ps -a` (unlike docker compose); plain `ps` lists containers.
-  return `${prefix} --env-file ${envAbs} -f ${composeAbs} ps`;
+  return `${prefix} ps`;
 }
 
 const server = new McpServer(

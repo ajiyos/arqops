@@ -1,6 +1,6 @@
 # ArqOps — Low-Level Design (Implementation)
 
-**Version:** 1.1  
+**Version:** 1.2  
 **Scope:** This document describes the *as-built* implementation of the ArqOps modular monolith: backend (Spring Boot 3.3, Java 21), frontend (Next.js App Router, TypeScript), persistence, and cross-cutting concerns. It complements [BRD.md](BRD.md) and [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md).
 
 **Audience:** Engineers extending features, reviewing security boundaries, or onboarding to the codebase.
@@ -235,7 +235,158 @@ Swagger UI is available at `/swagger-ui.html` when enabled.
 
 ---
 
-## 8. Related files
+## 8. Function-level reference
+
+This section lists **public operations** and what they do. It is **not** an exhaustive listing of every private helper or getter in the codebase (~300 Java files); **`*Controller` methods** are omitted when they only delegate to the paired **`*Service`** method with the same name. Regenerate or extend this section when you add significant services.
+
+### 8.1 `com.arqops.common.security`
+
+| Class / member | Role |
+|----------------|------|
+| **`JwtTokenProvider` constructor** | Builds HS512 `SecretKey` from `app.jwt.secret` (raw ≥64 chars or Base64). |
+| `generateAccessToken(...)` | Issues tenant JWT: `sub` = userId, claims `tenant_id`, `email`, `roles`, `permissions`, expiry from access-token setting. |
+| `generatePlatformAccessToken(userId, email)` | Issues platform JWT: `platform: true`, no `tenant_id`. |
+| `generateRefreshToken(userId)` | Refresh JWT with unique `jti` so DB token row stays unique. |
+| `parseToken(token)` | Verifies signature and returns JJWT `Claims`. |
+| `validateToken(token)` | Returns true if `parseToken` succeeds. |
+| `getUserId` / `getTenantId` / `getRoles` / `getPermissions` | Read standard claims from access token. |
+| `isPlatformToken(token)` | True if claim `platform` is Boolean true. |
+| `generateGoogleDriveOAuthState` / `parseGoogleDriveOAuthState` | Short-lived signed state for Google OAuth (tenant + user binding). |
+| **`JwtAuthenticationFilter.doFilterInternal`** | Skips JWT for login/refresh/register POSTs and Google callback GET; else reads `Authorization: Bearer`, validates, sets `SecurityContext` + `TenantContext` (or platform principal without tenant); always clears `TenantContext` in `finally`. |
+| `extractToken` | Strips `Bearer ` prefix. |
+| `shouldSkipJwtForRequest` | Path/method allowlist for anonymous auth flows. |
+| **`SecurityConfig.securityFilterChain`** | Stateless CSRF-off, CORS, JSON 401/403 handlers, `permitAll` routes, JWT filter before username filter. |
+| `passwordEncoder` | `BCryptPasswordEncoder(12)`. |
+| `authenticationManager` | Standard Spring bean. |
+| `corsConfigurationSource` | Parses comma-separated `app.cors.allowed-origins`, strips trailing slash, credentials + headers for API CORS. |
+| **`UserPrincipal`** | Record: `userId`, optional `tenantId`, `email`, roles — Spring principal for tenant and platform users. |
+
+### 8.2 `com.arqops.common.tenancy`
+
+| Class / member | Role |
+|----------------|------|
+| `TenantContext.getCurrentTenantId` / `setCurrentTenantId` / `clear` | `ThreadLocal<UUID>` for current tenant during request. |
+| **`TenantHibernateFilter.enableTenantFilter`** | `@Before` repository methods: enables Hibernate `tenantFilter` with `TenantContext` ID, or disables filter when tenant is null (platform / anonymous). Excludes platform and global IAM repositories per pointcut. |
+
+### 8.3 `com.arqops.common.encryption`, `dto`, `exception`, `audit`
+
+| Class / member | Role |
+|----------------|------|
+| **`EncryptionService.encrypt` / `decrypt`** | AES-GCM with random 12-byte IV; Base64 envelope; null/blank passthrough. |
+| **`ApiResponse.success` / `success(..., PageMeta)` / `error(...)`** | Standard JSON envelope factories. |
+| **`GlobalExceptionHandler`** | Maps `AppException` → status + code; validation → `VALIDATION_ERROR` + field map; `AccessDeniedException` → 403; multipart/size errors; generic → 500. |
+| **`AuditService.log`** | `@Async` insert into `audit_logs` with tenant, user from `UserPrincipal`, optional IP (`X-Forwarded-For` or remote), JSON `changes`. |
+
+### 8.4 `com.arqops.common.storage.google`
+
+| Class / member | Role |
+|----------------|------|
+| **`GoogleDriveStorageService.createUploadSession`** | Returns resumable upload URL + headers for client or server upload into tenant folder. |
+| `uploadMultipartToGoogleDrive` | Server-side multipart upload to Drive under path. |
+| `assertFileInTenantScope` | Ensures Drive file id lives under tenant root (throws if not). |
+| `openTenantFileDownload` | Streams file bytes + filename for download after scope check. |
+
+### 8.5 `com.arqops.iam.service`
+
+| Service | Public methods (behavior) |
+|---------|---------------------------|
+| **`AuthService`** | `login` — validate user, issue access+refresh; `refresh` — rotate refresh, new access; `logout` — revoke refresh row. |
+| **`TenantService`** | `createTenant` — self-registration, seed tenant data; `getCurrentTenantProfile` / `updateTenantProfile` — current tenant settings. |
+| **`UserService`** | CRUD users, `deactivateUser`, `updateMyProfile`, `changePassword`; resolves `employeeId` link for responses. |
+| **`RoleService`** | List/create/update/delete custom roles and permission sets. |
+| **`PlatformAuthService`** | Platform admin `login` / `refresh` / `logout` (separate refresh table). |
+| **`PlatformTenantService`** | Cross-tenant list/get/create/update status for `PLATFORM_ADMIN`. |
+| **`TenantGoogleDriveService`** | `buildAuthorizationUrl` (state JWT); `handleOAuthCallback`; `saveOAuthCredentials` / `disconnect`. |
+| **`TenantBrandingService`** | `saveLogo` / `clearLogo` (disk under tenant); `resolveLogoPath` for public logo controller. |
+| **`TenantOutboundSmtpService`** | Get/update encrypted per-tenant SMTP for contract email send. |
+
+### 8.6 `com.arqops.crm.service`
+
+| Service | Public methods (behavior) |
+|---------|---------------------------|
+| **`ClientService`** | Paginated list/search, CRUD clients. |
+| **`ContactService`** | Contacts under a client: list, create, update, delete. |
+| **`LeadService`** | Lead pipeline CRUD, `convertToProject` creates project from lead. |
+| **`ActivityService`** | List activities by entity type/id; create activity. |
+
+### 8.7 `com.arqops.vendor.service`
+
+| Service | Public methods (behavior) |
+|---------|---------------------------|
+| **`VendorService`** | Paginated vendors, CRUD. |
+| **`WorkOrderService`** | WO CRUD, `approve`. |
+| **`PurchaseOrderService`** | PO CRUD, `approve`, filter by work order. |
+| **`VendorScorecardService`** | List scorecards by vendor, delete. |
+
+### 8.8 `com.arqops.project.service`
+
+**Note:** Task comments are exposed from [`ProjectController`](backend/src/main/java/com/arqops/project/controller/ProjectController.java) (`listComments`, `addComment`) using `TaskCommentRepository` directly — there is no `TaskCommentService`.
+
+| Service | Public methods (behavior) |
+|---------|---------------------------|
+| **`ProjectService`** | Project CRUD, `getBudget` aggregate. |
+| **`PhaseService`** | Phase CRUD under project; milestone CRUD under phase. |
+| **`TaskService`** | Tasks per project: CRUD; `getTask` returns entity. |
+| **`ResourceAssignmentService`** | List/update/delete assignments on project. |
+| **`BudgetLineService`** | Budget lines per project, delete, `setLaborTimesheetActual` for rollup. |
+| **`ProjectDocumentService`** | List/create/delete documents (Drive `storage_key`); `openDocumentDownload`. |
+| **`ProjectTypePhaseTemplateService`** | Admin templates grouped by project type; `findTemplatesForNewProject` for seeding phases. |
+| **`ProjectTypeTaskTemplateService`** | Same pattern for task templates. |
+| **`TenantProjectTypeService`** | Seed default types for new tenant; list/replace tenant project types. |
+
+### 8.9 `com.arqops.finance.service`
+
+| Service | Public methods (behavior) |
+|---------|---------------------------|
+| **`InvoiceService`** | Invoice CRUD; `listPayments` / `recordPayment`. |
+| **`ExpenseService`** | Expense CRUD; `openReceiptDownload` (stored file). |
+| **`VendorBillService`** | Vendor bill CRUD. |
+| **`TenantExpenseCategoryService`** | Seed defaults; list/replace categories. |
+| **`TenantSacCodeService`** | List/replace SAC codes for GST. |
+
+### 8.10 `com.arqops.hr.service`
+
+| Service | Public methods (behavior) |
+|---------|---------------------------|
+| **`EmployeeService`** | Employee CRUD; validates `userId` link to tenant user. |
+| **`AttendanceService`** | `mark` attendance; list by employee/range or tenant date range. |
+| **`LeaveTypeService`** | CRUD leave types. |
+| **`LeaveService`** | Paginated leaves; `apply`; `approve` / `reject`. |
+| **`HolidayService`** | Holidays by year; CRUD. |
+| **`ReimbursementService`** | List/filter; `submit`; `approve` / `reject`. |
+| **`TimeEntryService`** | List entries in range; `sync` bulk upsert (timesheets). |
+| **`TenantDesignationHourlyRateService`** | Seed defaults; list/replace rates; `resolveHourlyRate` / `assertActiveDesignation` for timesheet validation. |
+| **`TimesheetLaborRollupService`** | `recalculateLaborForProjects` — updates budget actuals from time entries. |
+
+### 8.11 `com.arqops.contract.service`
+
+| Service | Public methods (behavior) |
+|---------|---------------------------|
+| **`ContractService`** | `list` (filters); `getDetail`; `create` / `update` / `delete`; `replaceParties`; `addManualRevision`; `generateRevision` (AI); `exportRevision` (md/txt); `sendToParties` (email); `listSignedDocuments` / `uploadSigned` / `downloadSigned`. |
+| **`TenantContractAiConfigService`** | Tenant admin get/update encrypted OpenAI key + prompt/model; `requireConfigWithKey`; `decryptApiKey`; `effectiveSystemPrompt` / `effectiveModel` defaults. |
+
+### 8.12 `com.arqops.report.service`
+
+| Service | Public methods (behavior) |
+|---------|---------------------------|
+| **`DashboardService.buildDashboard`** | Aggregates KPIs for dashboard cards (optional date range). |
+| **`ReportService`** | Each `*Summary` / `*Register` / `*Analysis` method runs **parameterized native SQL** scoped by `tenant_id` and returns `List<ReportRow>` for the matching report UI (CRM pipeline, lead source, project status, budget variance, AR/AP aging, attendance, leave, revenue vs expense, GST, expense category, vendor performance, payroll, conversion, activity by member, milestone slippage, resource utilization, WO/PO summary, project profitability, TDS, headcount/attrition, reimbursement summary). |
+
+### 8.13 Frontend (`frontend/src`)
+
+| Module | Functions / behavior |
+|--------|----------------------|
+| **[`lib/api/client.ts`](frontend/src/lib/api/client.ts)** | `isAnonymousAuthRequest` — omit Bearer for login, refresh, register. Request interceptor attaches `accessToken`. Response interceptor on 401/403 tries refresh once, retries, else clears storage and redirects to `/login`. |
+| **[`lib/auth/auth-context.tsx`](frontend/src/lib/auth/auth-context.tsx)** | `AuthProvider` — hydrate user from `localStorage`; `login` POST + store tokens/user; `logout` POST revoke + clear. `useAuth` hook. |
+| **[`lib/platform/platform-api.ts`](frontend/src/lib/platform/platform-api.ts)** | Axios instance for platform admin; Bearer `platformAccessToken`; 401/403 refresh via `/platform/auth/refresh`; redirect `/site-admin/login` on failure. |
+| **[`lib/google-drive-upload.ts`](frontend/src/lib/google-drive-upload.ts)** | `createUploadSession` — POST upload-session; `uploadFileToGoogleDrive` — multipart via backend; `downloadAuthenticatedBlob` — GET blob with tenant auth. |
+| **`lib/utils/cn.ts`** | Merges Tailwind class names (typically `clsx` + `tailwind-merge`). |
+| **`lib/utils/format.ts`** | INR / date helpers for UI. |
+| **Page components** (`app/**`) | Route-level UI: call React Query + `apiClient` / `platformApi`; no shared “function catalog” — behavior is load/mutate data and render forms/tables. |
+
+---
+
+## 9. Related files
 
 | Document / path | Purpose |
 |-----------------|---------|
@@ -248,4 +399,4 @@ Swagger UI is available at `/swagger-ui.html` when enabled.
 
 ---
 
-*This LLD reflects the repository state at the time of writing. When adding features, update this document if public contracts, tenancy boundaries, or deployment topology change.*
+*This LLD reflects the repository state at the time of writing. When adding features, update **§8 Function-level reference** for new or changed public service methods, security, or shared frontend utilities.*

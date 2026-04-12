@@ -35,7 +35,7 @@ chmod +x infra/prod/scripts/*.sh
 | `ARQOPS_COMPOSE_FILE` | Alternate compose file path. |
 | `ARQOPS_ENV_FILE` | Alternate env file (default: `$REPO_ROOT/.env.prod`). |
 | `DO_REGISTRY_TOKEN` / `DOCR_TOKEN` | For **02** non-interactive registry login. |
-| `VERIFY_APP_URL` / `VERIFY_API_URL` | For **07** external HTTPS checks. |
+| `VERIFY_APP_URL` / `VERIFY_API_URL` | For **07** external HTTPS checks (e.g. `VERIFY_APP_URL=https://arqops.com/` and `VERIFY_API_URL=https://api.arqops.com/actuator/health`). |
 | `CONTAINER_ENGINE` | For **build-push-images.sh**: `docker` (default) or `podman`. |
 | `ALSO_LATEST` | For **build-push-images.sh**: set to `1` to also tag and push `:latest`. |
 

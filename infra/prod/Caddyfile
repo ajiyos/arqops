@@ -2,8 +2,12 @@
 	email {$ACME_EMAIL:admin@arqops.com}
 }
 
-# Main application domain — serves the frontend
-{$APP_DOMAIN:app.arqops.com} {
+# Main application — apex + optional www (comma-separated APP_DOMAIN).
+# CANONICAL_APP_HOST is the apex hostname; www.{CANONICAL_APP_HOST} 301 → https://{CANONICAL_APP_HOST}{uri}
+{$APP_DOMAIN:arqops.com,www.arqops.com} {
+	@www host www.{$CANONICAL_APP_HOST:arqops.com}
+	redir @www https://{$CANONICAL_APP_HOST:arqops.com}{uri} permanent
+
 	encode gzip zstd
 
 	header {
@@ -35,7 +39,7 @@
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
-		Access-Control-Allow-Origin "{$CORS_ORIGIN:https://app.arqops.com}"
+		Access-Control-Allow-Origin "{$CORS_ORIGIN:https://arqops.com}"
 		Access-Control-Allow-Credentials "true"
 		Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
 		Access-Control-Allow-Headers "Authorization, Content-Type, X-Tenant-Id, Accept"
